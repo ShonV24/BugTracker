@@ -14,6 +14,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using BugTracker.Services.Interfaces;
+using BugTracker.Services;
 
 namespace BugTracker
 {
@@ -40,6 +42,7 @@ namespace BugTracker
                 .AddDefaultUI()
                 .AddDefaultTokenProviders();
 
+            services.AddScoped<IBTRolesService, BTRolesService>();
 
             services.AddMvc();
         }
