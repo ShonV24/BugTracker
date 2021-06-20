@@ -36,5 +36,11 @@ namespace BugTracker.Models
 
         [DisplayName("Last Name")]
         public string InviteeLastName { get; set; }
+
+        public bool IsValid { get; set; }
+        public virtual Company Company { get; set; }
+        public virtual BTUser Invitor { get; set; }
+        public virtual BTUser Invitee { get; set; }
+        public virtual Project Project { get; set; }
     }
 }

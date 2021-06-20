@@ -7,16 +7,38 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BugTracker.Data;
 using BugTracker.Models;
+using BugTracker.Services.Interfaces;
+using BugTracker.Models.ViewModels;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
+using BugTracker.Extensions;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace BugTracker.Controllers
 {
     public class InvitesController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<BTUser> _userManager;
+        private readonly IDataProtector _protector;
+        private readonly IBTProjectService _projectService;
+        private readonly IEmailSender _emailService;
+        private readonly IBTInviteService _inviteService;
 
-        public InvitesController(ApplicationDbContext context)
+        public InvitesController(ApplicationDbContext context,
+                              UserManager<BTUser> userManager,
+                              IDataProtectionProvider dataProtectionProvider,
+                              IBTProjectService projectService,
+                              IEmailSender emailService,
+                              IBTInviteService inviteService)
+
         {
             _context = context;
+            _userManager = userManager;
+            _protector = dataProtectionProvider.CreateProtector("BugTracker.21");
+            _projectService = projectService;
+            _emailService = emailService;
+            _inviteService = inviteService;
         }
 
         // GET: Invites
@@ -34,6 +56,10 @@ namespace BugTracker.Controllers
             }
 
             var invite = await _context.Invite
+                .Include(i => i.Company)
+                .Include(i => i.Invitee)
+                .Include(i => i.Invitor)
+                .Include(i => i.Project)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (invite == null)
             {
@@ -44,9 +70,22 @@ namespace BugTracker.Controllers
         }
 
         // GET: Invites/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            return View();
+            InviteViewModel model = new();
+
+            if (User.IsInRole("Admin"))
+            {
+                model.ProjectsList = new SelectList(_context.Project, "Id", "Name");
+            }
+            else if (User.IsInRole("ProjectManager"))
+            {
+                string userId = _userManager.GetUserId(User);
+                List<Project> projects = await _projectService.ListUserProjectsAsync(userId);
+                model.ProjectsList = new SelectList(projects, "Id", "Name");
+            }
+
+            return View(model);
         }
 
         // POST: Invites/Create
@@ -65,89 +104,227 @@ namespace BugTracker.Controllers
             return View(invite);
         }
 
-        // GET: Invites/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+        public async Task<ActionResult> Create(InviteViewModel viewModel)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            var companyId = User.Identity.GetCompanyId();
 
-            var invite = await _context.Invite.FindAsync(id);
-            if (invite == null)
+            Guid guid = Guid.NewGuid();
+
+            var token = _protector.Protect(guid.ToString());
+            var email = _protector.Protect(viewModel.Email);
+
+            var callbackUrl = Url.Action("ProcessInvite", "Invites", new { token, email }, protocol: Request.Scheme);
+
+            var body = "Please join my Company." + Environment.NewLine + "Please click the following link to join <a href=\"" + callbackUrl + "\">COLLABORATE</a>";
+            var destination = viewModel.Email;
+            var subject = "Company Invite";
+
+
+            await _emailService.SendEmailAsync(destination, subject, body);
+
+            //Create record in the Invites table
+            Invite model = new()
             {
-                return NotFound();
-            }
-            return View(invite);
+                InviteeEmail = viewModel.Email,
+                InviteeFirstName = viewModel.FirstName,
+                InviteeLastName = viewModel.LastName,
+                CompanyToken = guid,
+                CompanyId = companyId.Value,
+                ProjectId = viewModel.ProjectId,
+                InviteDate = DateTimeOffset.Now,
+                InvitorId = _userManager.GetUserId(User),
+                IsValid = true
+            };
+
+            _context.Invite.Add(model);
+            _context.SaveChanges();
+
+            return RedirectToAction("Dashboard", "Home");
+
         }
-
-        // POST: Invites/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,InviteDate,CompanyToken,CompanyId,ProjectId,InvitorId,InviteeId,InviteeEmail,InviteeFirstName,InviteeLastName")] Invite invite)
-        {
-            if (id != invite.Id)
+            // GET: Invites/Edit/5
+            public async Task<IActionResult> Edit(int? id)
             {
-                return NotFound();
+                if (id == null)
+                {
+                    return NotFound();
+                }
+
+                var invite = await _context.Invite.FindAsync(id);
+                if (invite == null)
+                {
+                    return NotFound();
+                }
+                return View(invite);
             }
 
-            if (ModelState.IsValid)
+            // POST: Invites/Edit/5
+            // To protect from overposting attacks, enable the specific properties you want to bind to.
+            // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+            [HttpPost]
+            [ValidateAntiForgeryToken]
+            public async Task<IActionResult> Edit(int id, [Bind("Id,InviteDate,CompanyToken,CompanyId,ProjectId,InvitorId,InviteeId,InviteeEmail,InviteeFirstName,InviteeLastName")] Invite invite)
             {
-                try
+                if (id != invite.Id)
                 {
-                    _context.Update(invite);
-                    await _context.SaveChangesAsync();
+                    return NotFound();
                 }
-                catch (DbUpdateConcurrencyException)
+
+                if (ModelState.IsValid)
                 {
-                    if (!InviteExists(invite.Id))
+                    try
                     {
-                        return NotFound();
+                        _context.Update(invite);
+                        await _context.SaveChangesAsync();
                     }
-                    else
+                    catch (DbUpdateConcurrencyException)
                     {
-                        throw;
+                        if (!InviteExists(invite.Id))
+                        {
+                            return NotFound();
+                        }
+                        else
+                        {
+                            throw;
+                        }
                     }
+                    return RedirectToAction(nameof(Index));
                 }
+                return View(invite);
+            }
+
+            // GET: Invites/Delete/5
+            public async Task<IActionResult> Delete(int? id)
+            {
+                if (id == null)
+                {
+                    return NotFound();
+                }
+
+                var invite = await _context.Invite
+                    .FirstOrDefaultAsync(m => m.Id == id);
+                if (invite == null)
+                {
+                    return NotFound();
+                }
+
+                return View(invite);
+            }
+
+            // POST: Invites/Delete/5
+            [HttpPost, ActionName("Delete")]
+            [ValidateAntiForgeryToken]
+            public async Task<IActionResult> DeleteConfirmed(int id)
+            {
+                var invite = await _context.Invite.FindAsync(id);
+                _context.Invite.Remove(invite);
+                await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            return View(invite);
-        }
 
-        // GET: Invites/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+            private bool InviteExists(int id)
+            {
+                return _context.Invite.Any(e => e.Id == id);
+            }
+
+        [HttpGet]
+        public async Task<IActionResult> ProcessInvite(string token, string email)
         {
-            if (id == null)
+            if (token == null)
             {
                 return NotFound();
             }
 
-            var invite = await _context.Invite
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (invite == null)
+            Guid companyToken = Guid.Parse(_protector.Unprotect(token));
+            string inviteeEmail = _protector.Unprotect(email);
+
+            //Use InviteService to validate invite code 
+            Invite invite = await _inviteService.GetInviteAsync(companyToken, inviteeEmail);
+
+            if (invite != null)
             {
-                return NotFound();
+                return View(invite);
             }
 
-            return View(invite);
+            return NotFound();
         }
 
-        // POST: Invites/Delete/5
-        [HttpPost, ActionName("Delete")]
+        [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public IActionResult ProcessInvite(Invite invite)
         {
-            var invite = await _context.Invite.FindAsync(id);
-            _context.Invite.Remove(invite);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            return RedirectToPage("RegisterByInvite", new { invite });
         }
 
-        private bool InviteExists(int id)
-        {
-            return _context.Invite.Any(e => e.Id == id);
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }
-}
+    }

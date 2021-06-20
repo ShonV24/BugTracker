@@ -65,7 +65,8 @@ namespace BugTracker.Controllers
             {
                 _context.Add(ticketComment);
                 await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction("Details", "Tickets", new { Id = ticketComment.TicketId });
+                //return RedirectToAction(nameof(Index));
             }
             ViewData["TicketId"] = new SelectList(_context.Ticket, "Id", "Description", ticketComment.TicketId);
             ViewData["UserId"] = new SelectList(_context.Users, "Id", "Id", ticketComment.UserId);

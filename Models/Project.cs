@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using BugTracker.Extensions;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,7 +12,7 @@ namespace BugTracker.Models
 {
     public class Project
     {
-        public int id { get; set; }
+        public int Id { get; set; }
 
         [DisplayName("Company")]
         public int CompanyId { get; set; }
@@ -19,7 +20,6 @@ namespace BugTracker.Models
         [Required]
         [StringLength(50)]
         [DisplayName("Project Name")]
-
         public string Name { get; set; }
 
         [DisplayName("Description")]
@@ -36,9 +36,8 @@ namespace BugTracker.Models
 
         [NotMapped]
         [DataType(DataType.Upload)]
-        //MaxFileSize(1024 * 1024)
-        //[AllowedExtensions(new string[] { ".jpg", ".png" })]
-
+        [MaxFileSize(2 * 1024 * 1024)]
+        [AllowedExtensions(new string[] { ".jpg", ".png", ".doc", ".docx", ".xls", ".xlsx", ".pdf"})]
         public IFormFile ImageFormFile { get; set; }
         [DisplayName("File Name")]
         public string ImageFileName { get; set; }

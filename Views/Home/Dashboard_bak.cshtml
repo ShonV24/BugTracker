@@ -1,0 +1,110 @@
+﻿@model BugTracker.Models.ViewModels.DashboardViewModel
+
+@using BugTracker.Services.Interfaces
+@using Microsoft.AspNetCore.Identity
+@using BugTracker.Extensions
+
+@inject IBTCompanyInfoService CompanyInfoService
+@inject IBTRolesService RolesService
+@inject IBTProjectService ProjectService
+@inject IBTTicketService TicketService
+@inject UserManager<BTUser> UserManager
+
+@{
+    int companyId = User.Identity.GetCompanyId().Value;
+    BTUser btUser = await UserManager.GetUserAsync(User);
+}
+<div id="main-content">
+    <div class="container-fluid">
+        <div class="block-header">
+            <div class="row">
+                <!--BreadCrumb-->
+                <div class="col-lg-6 col-md-8 col-sm-12">
+                    <h2><a href="javascript:void(0);" class="btn btn-xs btn-link btn-toggle-fullwidth"><i class="fade fa-arrow-left"></i></a></h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href=""><i class="icon-home"></i></a></li>
+                        @*<li class="breadcrumb-item active">Dashboard</li>*@
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+        <!--Info Pills-->
+        <div class="row clearfix">
+            <div class="col-lg-3 col-md-6 col-sm-6">
+                <div class="card text-center bg-info">
+                    <div class="body">
+                        <div class="p-15 text-light">
+                            <h3>
+                                @Model.Projects.Where(p => p.StartDate < DateTime.Now && p.EndDate > DateTime.Now).Count()
+                            </h3>
+
+                                <span> Active Projects </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3 col-md-6 col-sm-6">
+            <a asp-action="AllTickets" asp-controller="Home">
+                <div class="card text-center bg-secondary">
+                    <div class="body">
+                        <div class="p-15 text-light">
+
+                            <h3>@Model.Tickets.Count()</h3>
+                            <span>Total Tickets</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-6 col-sm-6">
+            <div class="card text-center bg-warning">
+                <div class="body">
+                    <div class="p-15 text-light">
+                        <h3>@Model.Tickets.Where(t=>t.TicketStatus.Name=="Unassigned").Count()</h3>
+                        <span>Unassigned Tickets</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-sm-6">
+            <div class="card text-center bg-dark">
+                <div class="body">
+                    <div class="p-15 text-light">
+                        <h3>
+                            @(Model.Projects.Count() + Model.Tickets.Count() + Model.Members.Count())
+                        </h3>
+                        <span>Analytics</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @*<div class="row clearfix">
+            <div class="col-log-3 col-md-6">
+                <div class="card top_counter">
+                    <div class="body">
+                        <div class="icon"><i class"fa fa-user></i> </div>
+                        <div class="content">
+                            <div class="text">New Users</div>
+                            <h5 class="number">@{(await CompanyInfoService.GetMembersInRoleAsync("NewUser", companyId)).Count();}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>*@
+
+
+
+
+
+
+    </div>
+</div>

@@ -16,6 +16,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using BugTracker.Services.Interfaces;
 using BugTracker.Services;
+using BugTracker.Services.Factories;
+using RockwellBlog.Services;
 
 namespace BugTracker
 {
@@ -31,18 +33,27 @@ namespace BugTracker
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-           services.AddDbContext<ApplicationDbContext>(options =>
-               options.UseNpgsql(
-                    Configuration.GetConnectionString("DefaultConnection")));
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseNpgsql(DataUtility.GetConnectionString(Configuration)));
+
 
            services.AddDatabaseDeveloperPageExceptionFilter();
 
             services.AddIdentity<BTUser, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddClaimsPrincipalFactory<BTUserClaimsPrincipalFactory>()
                 .AddDefaultUI()
                 .AddDefaultTokenProviders();
 
             services.AddScoped<IBTRolesService, BTRolesService>();
+            services.AddScoped<IBTCompanyInfoService, BTCompanyInfoService>();
+            services.AddScoped<IBTProjectService, BTProjectService>();
+            services.AddScoped<IBTTicketService, BTTicketService>();
+            services.AddScoped<IEmailSender, EmailService>();
+            services.AddScoped<IBTInviteService, BTInviteService>();
+            services.AddScoped<IBTInviteService, BTInviteService>();
+     
+
 
             services.AddMvc();
         }
@@ -73,7 +84,7 @@ namespace BugTracker
             {
                 endpoints.MapControllerRoute(
                     name: "default",
-                    pattern: "{controller=Home}/{action=Index}/{id?}");
+                    pattern: "{controller=Home}/{action=Landing}/{id?}");
                 endpoints.MapRazorPages();
             });
         }

@@ -14,14 +14,17 @@ namespace BugTracker.Services
         private readonly ApplicationDbContext _context;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly UserManager<BTUser> _userManager;
+        private readonly IBTCompanyInfoService _infoService;
 
         public BTRolesService(ApplicationDbContext context,
             RoleManager<IdentityRole> roleManager,
-            UserManager<BTUser> userManager)
+            UserManager<BTUser> userManager, 
+            IBTCompanyInfoService infoService)
         {
             _context = context;
             _roleManager = roleManager;
             _userManager = userManager;
+            _infoService = infoService;
         }
 
         public async Task<bool> AddUserToRoleAsync(BTUser user, string roleName)
@@ -57,13 +60,20 @@ namespace BugTracker.Services
             return result;
         }
 
-        public async Task<List<BTUser>> UsersNotInRoleAsync(string roleName)
+        public async Task<bool> RemoveUserFromRolesAsync(BTUser user, IEnumerable<string> roles)
         {
+            var result = (await _userManager.RemoveFromRolesAsync(user, roles)).Succeeded;
+            return result;
+        }
+
+        public async Task<List<BTUser>> UsersNotInRoleAsync(string roleName, int companyId)
+        {
+            //var userDB = _context.Users;
             List<BTUser> usersNotInRole = new();
             try { 
             
                 //TODO: Modify for multi tenants
-                foreach(BTUser user in _context.Users.ToList())
+                foreach(BTUser user in _context.Users.Where(u=>u.CompanyId==companyId))
                 {
                     if(!await IsUserInRoleAsync(user, roleName))
                     {

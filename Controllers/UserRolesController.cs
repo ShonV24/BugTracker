@@ -18,14 +18,11 @@ namespace BugTracker.Controllers
     public class UserRolesController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly UserManager<BTUser> _userManager;
         private readonly IBTRolesService _rolesService;
         public UserRolesController(ApplicationDbContext context,
-                                UserManager<BTUser> userManager,
                                 IBTRolesService rolesService) 
         {
             _context = context;
-            _userManager = userManager;
             _rolesService = rolesService;
         }
     
@@ -34,7 +31,7 @@ namespace BugTracker.Controllers
         {
             List<ManageUserRolesViewModel> model = new();
 
-            //TODO: Company Users
+            //TODO: Company Users ........Little more work todo
             List<BTUser> users = _context.Users.ToList();
 
             foreach (var user in users)
@@ -53,21 +50,25 @@ namespace BugTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ManageUserRoles(ManageUserRolesViewModel member)
         {
-            BTUser user = _context.Users.Find(member.BTUser.Id);
-            //Homework
-            IEnumerable<string> roles = await _rolesService.ListUserRolesAsync(user);
-            await _userManager.RemoveFromRolesAsync(user, roles); //Hmmm???
-            string userRole = member.SelectedRoles.FirstOrDefault();
 
-            if (Enum.TryParse(userRole, out Roles roleValue))
-            {
-                await _rolesService.AddUserToRoleAsync(user, userRole);
-                return RedirectToAction("ManageUserRoles");
-            }
+                BTUser user = _context.Users.Find(member.BTUser.Id);
 
+                //Homework
+                IEnumerable<string> roles = await _rolesService.ListUserRolesAsync(user);
+                await _rolesService.RemoveUserFromRolesAsync(user, roles);
+
+                string userRole = member.SelectedRoles.FirstOrDefault();
+
+                if (Enum.TryParse(userRole, out Roles roleValue))
+                {
+                    await _rolesService.AddUserToRoleAsync(user, userRole);
+                    return RedirectToAction("ManageUserRoles");
+                }
+            
             return RedirectToAction("ManageUserRoles");
         }
-    
+        
+       
     }
 
 

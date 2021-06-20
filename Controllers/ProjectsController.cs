@@ -7,16 +7,29 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BugTracker.Data;
 using BugTracker.Models;
+using BugTracker.Models.ViewModels;
+using BugTracker.Extensions;
+using BugTracker.Services.Interfaces;
+using BugTracker.Models.Enums;
 
 namespace BugTracker.Controllers
 {
     public class ProjectsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IBTCompanyInfoService _infoService;
+        private readonly IBTProjectService _projectService;
+        private readonly IBTRolesService _roleService;
 
-        public ProjectsController(ApplicationDbContext context)
+        public ProjectsController(ApplicationDbContext context,
+            IBTCompanyInfoService infoService,
+            IBTProjectService projectService,
+            IBTRolesService roleService)
         {
             _context = context;
+            _infoService = infoService;
+            _projectService = projectService;
+            _roleService = roleService;
         }
 
         // GET: Projects
@@ -25,6 +38,27 @@ namespace BugTracker.Controllers
             var applicationDbContext = _context.Project.Include(p => p.Company).Include(p => p.ProjectPriority);
             return View(await applicationDbContext.ToListAsync());
         }
+
+        public async Task<IActionResult> CompanyProjects(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            //Get CompanyId
+            int companyId = User.Identity.GetCompanyId().Value;
+            var model = await _projectService.GetAllProjectsByCompany(companyId);
+
+
+            if (model == null)
+            {
+                return NotFound();
+            }
+
+            return View(model);
+        }
+
 
         // GET: Projects/Details/5
         public async Task<IActionResult> Details(int? id)
@@ -35,9 +69,10 @@ namespace BugTracker.Controllers
             }
 
             var project = await _context.Project
+                .Include(p => p.Members)
                 .Include(p => p.Company)
                 .Include(p => p.ProjectPriority)
-                .FirstOrDefaultAsync(m => m.id == id);
+                .FirstOrDefaultAsync(m => m.Id == id);
             if (project == null)
             {
                 return NotFound();
@@ -50,7 +85,7 @@ namespace BugTracker.Controllers
         public IActionResult Create()
         {
             ViewData["CompanyId"] = new SelectList(_context.Company, "Id", "Id");
-            ViewData["ProjectPriorityId"] = new SelectList(_context.Set<ProjectPriority>(), "Id", "Id");
+            ViewData["ProjectPriorityId"] = new SelectList(_context.ProjectPriority, "Id", "Name");
             return View();
         }
 
@@ -59,7 +94,7 @@ namespace BugTracker.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("id,CompanyId,Name,Description,StartDate,EndDate,ProjectPriorityId,ImageFileName,ImageFileData,ImageContentType,Archived")] Project project)
+        public async Task<IActionResult> Create([Bind("Id,Name,Description,StartDate,EndDate,ProjectPriorityId,ImageFileName,ImageFileData,ImageContentType,")] Project project)
         {
             if (ModelState.IsValid)
             {
@@ -68,7 +103,7 @@ namespace BugTracker.Controllers
                 return RedirectToAction(nameof(Index));
             }
             ViewData["CompanyId"] = new SelectList(_context.Company, "Id", "Id", project.CompanyId);
-            ViewData["ProjectPriorityId"] = new SelectList(_context.Set<ProjectPriority>(), "Id", "Id", project.ProjectPriorityId);
+            ViewData["ProjectPriorityId"] = new SelectList(_context.ProjectPriority, "Id", "Id", project.ProjectPriorityId);
             return View(project);
         }
 
@@ -86,7 +121,7 @@ namespace BugTracker.Controllers
                 return NotFound();
             }
             ViewData["CompanyId"] = new SelectList(_context.Company, "Id", "Id", project.CompanyId);
-            ViewData["ProjectPriorityId"] = new SelectList(_context.Set<ProjectPriority>(), "Id", "Id", project.ProjectPriorityId);
+            ViewData["ProjectPriorityId"] = new SelectList(_context.ProjectPriority, "Id", "Id", project.ProjectPriorityId);
             return View(project);
         }
 
@@ -95,9 +130,9 @@ namespace BugTracker.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("id,CompanyId,Name,Description,StartDate,EndDate,ProjectPriorityId,ImageFileName,ImageFileData,ImageContentType,Archived")] Project project)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,CompanyId,Name,Description,StartDate,EndDate,ProjectPriorityId,ImageFileName,ImageFileData,ImageContentType,Archived")] Project project)
         {
-            if (id != project.id)
+            if (id != project.Id)
             {
                 return NotFound();
             }
@@ -111,7 +146,7 @@ namespace BugTracker.Controllers
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!ProjectExists(project.id))
+                    if (!ProjectExists(project.Id))
                     {
                         return NotFound();
                     }
@@ -123,9 +158,67 @@ namespace BugTracker.Controllers
                 return RedirectToAction(nameof(Index));
             }
             ViewData["CompanyId"] = new SelectList(_context.Company, "Id", "Id", project.CompanyId);
-            ViewData["ProjectPriorityId"] = new SelectList(_context.Set<ProjectPriority>(), "Id", "Id", project.ProjectPriorityId);
+            ViewData["ProjectPriorityId"] = new SelectList(_context.ProjectPriority, "Id", "Id", project.ProjectPriorityId);
             return View(project);
         }
+
+        //[Authorize(Roles = "Admin,ProjectManager")]
+        [HttpGet]
+        public async Task<IActionResult> AssignUsers(int id)
+        {
+            ProjectMembersViewModel model = new();
+
+            //get companyID
+            int companyId = User.Identity.GetCompanyId().Value;
+
+            Project project = (await _projectService.GetAllProjectsByCompany(companyId))
+                                    .FirstOrDefault(p => p.Id == id);
+
+            model.Project = project;
+            List<BTUser> developers = await _infoService.GetMembersInRoleAsync(Roles.Developer.ToString(), companyId);
+            List<BTUser> submitters = await _infoService.GetMembersInRoleAsync(Roles.Submitter.ToString(), companyId);
+
+            List<BTUser> users = developers.Concat(submitters).ToList();
+            List<string> members = project.Members.Select(m => m.Id).ToList();
+            model.Users = new MultiSelectList(users, "Id", "FullName", members);
+            return View(model);
+        }
+
+        //post assign users
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignUsers(ProjectMembersViewModel model)
+        {
+
+            if (ModelState.IsValid)
+            {
+                if (model.SelectedUsers != null)
+                {
+
+                    List<string> memberIds = (await _projectService.GetMembersWithoutPMAsync(model.Project.Id))
+                                                                    .Select(m => m.Id).ToList();
+                    foreach (string id in memberIds)
+                    {
+                        await _projectService.RemoveUserFromProjectAsync(id, model.Project.Id);
+                    }
+
+
+                    foreach (string id in model.SelectedUsers)
+                    {
+                        await _projectService.AddUserToProjectAsync(id, model.Project.Id);
+                    }
+                    //goto project details
+                    return RedirectToAction("Details", "Projects", new { id = model.Project.Id });
+
+                }
+                else
+                {
+                    //send en an error message back
+                }
+            }
+            return View(model);
+        }
+
 
         // GET: Projects/Delete/5
         public async Task<IActionResult> Delete(int? id)
@@ -138,7 +231,7 @@ namespace BugTracker.Controllers
             var project = await _context.Project
                 .Include(p => p.Company)
                 .Include(p => p.ProjectPriority)
-                .FirstOrDefaultAsync(m => m.id == id);
+                .FirstOrDefaultAsync(m => m.Id == id);
             if (project == null)
             {
                 return NotFound();
@@ -160,7 +253,7 @@ namespace BugTracker.Controllers
 
         private bool ProjectExists(int id)
         {
-            return _context.Project.Any(e => e.id == id);
+            return _context.Project.Any(e => e.Id == id);
         }
     }
 }
