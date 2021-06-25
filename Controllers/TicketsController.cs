@@ -44,7 +44,12 @@ namespace BugTracker.Controllers
         // GET: Tickets
         public async Task<IActionResult> Index()
         {
-            var applicationDbContext = _context.Ticket.Include(t => t.DeveloperUser).Include(t => t.OwnerUser);
+            var applicationDbContext = _context.Ticket.Include(t => t.DeveloperUser)
+                                                      .Include(t => t.OwnerUser)
+                                                      .Include(t => t.Project)
+                                                      .Include(t => t.TicketPriority)
+                                                      .Include(t => t.TicketStatus)
+                                                      .Include(t => t.TicketType);
             return View(await applicationDbContext.ToListAsync());
         }
         public async Task<IActionResult> AllTickets()
@@ -52,8 +57,10 @@ namespace BugTracker.Controllers
 
             // Get the company tickets
             int companyId = User.Identity.GetCompanyId().Value;
-            List<Ticket> tickets = await _companyInfoService.GetAllTicketsAsync(companyId);
+            var allTickets = (await _companyInfoService.GetAllTicketsAsync(companyId)).Where(t => !t.Archived);
 
+            //**Remember This Line was before the previous:
+            List<Ticket> tickets = await _companyInfoService.GetAllTicketsAsync(companyId);
 
             return View(tickets);
         }

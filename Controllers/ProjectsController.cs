@@ -11,6 +11,9 @@ using BugTracker.Models.ViewModels;
 using BugTracker.Extensions;
 using BugTracker.Services.Interfaces;
 using BugTracker.Models.Enums;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
+using System.Data;
 
 namespace BugTracker.Controllers
 {
@@ -20,16 +23,18 @@ namespace BugTracker.Controllers
         private readonly IBTCompanyInfoService _infoService;
         private readonly IBTProjectService _projectService;
         private readonly IBTRolesService _roleService;
+        private readonly UserManager<BTUser> _userManager;
 
         public ProjectsController(ApplicationDbContext context,
             IBTCompanyInfoService infoService,
             IBTProjectService projectService,
-            IBTRolesService roleService)
+            IBTRolesService roleService, UserManager<BTUser> userManager)
         {
             _context = context;
             _infoService = infoService;
             _projectService = projectService;
             _roleService = roleService;
+            _userManager = userManager;
         }
 
         // GET: Projects
@@ -39,6 +44,7 @@ namespace BugTracker.Controllers
             return View(await applicationDbContext.ToListAsync());
         }
 
+        //Company Projects
         public async Task<IActionResult> CompanyProjects(int? id)
         {
             if (id == null)
@@ -59,6 +65,20 @@ namespace BugTracker.Controllers
             return View(model);
         }
 
+        //My Projects
+        [HttpGet]
+        public async Task<IActionResult> MyProjects()
+        {
+            var myId = (await _userManager.GetUserAsync(User)).Id;
+            var model = await _projectService.ListUserProjectsAsync(myId);
+
+            if (model == null)
+            {
+                return NotFound();
+            }
+
+            return View(model);
+        }
 
         // GET: Projects/Details/5
         public async Task<IActionResult> Details(int? id)
@@ -82,6 +102,7 @@ namespace BugTracker.Controllers
         }
 
         // GET: Projects/Create
+        [Authorize(Roles = "Administrator, Project Manager")]
         public IActionResult Create()
         {
             ViewData["CompanyId"] = new SelectList(_context.Company, "Id", "Id");
@@ -108,6 +129,7 @@ namespace BugTracker.Controllers
         }
 
         // GET: Projects/Edit/5
+        [Authorize(Roles = "Administrator, Project Manager")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)

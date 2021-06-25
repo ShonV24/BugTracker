@@ -1,18 +1,20 @@
-﻿using BugTracker.Data;
-using BugTracker.Extensions;
-using BugTracker.Models;
-using BugTracker.Models.ViewModels;
-using BugTracker.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using BugTracker.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
+using Microsoft.AspNetCore.Identity;
+using BugTracker.Data;
+using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
+using BugTracker.Extensions;
+using BugTracker.Services.Interfaces;
+using BugTracker.Models.ViewModels;
+using BugTracker.Models.Enums;
+using Microsoft.AspNetCore.Authorization;
+using System.Drawing;
 
 namespace BugTracker.Controllers
 {
@@ -20,47 +22,46 @@ namespace BugTracker.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly ApplicationDbContext _context;
-        private readonly IBTCompanyInfoService _companyInfoService;
-        private readonly IBTTicketService _bTTicketService;
+        private readonly IBTCompanyInfoService _infoService;
         private readonly IBTProjectService _projectService;
+        private readonly IBTTicketService _ticketService;
         private readonly UserManager<BTUser> _userManager;
+
         public HomeController(ILogger<HomeController> logger,
-            IBTCompanyInfoService companyInfoService,
-            IBTTicketService bTTicketService,
-            IBTProjectService projectService,
-            UserManager<BTUser> userManager)
+                              ApplicationDbContext context,
+                              IBTCompanyInfoService infoService,
+                              IBTProjectService projectService,
+                              IBTTicketService ticketService,
+                              UserManager<BTUser> userManager)
         {
             _logger = logger;
-            _companyInfoService = companyInfoService;
-            _bTTicketService = bTTicketService;
+            _context = context;
+            _infoService = infoService;
             _projectService = projectService;
+            _ticketService = ticketService;
             _userManager = userManager;
         }
 
-        public IActionResult Index()
-        {
-            return View();
-        }
         [Authorize]
-        //Get: Dashboard
         public async Task<IActionResult> Dashboard()
         {
-            int companyId = User.Identity.GetCompanyId().Value;
-
-            DashboardViewModel model = new()
+            var userId = _userManager.GetUserId(User);
+            var companyId = User.Identity.GetCompanyId().Value;
+            var projects = await _projectService.GetAllProjectsByCompany(companyId);
+            var tickets = await _ticketService.GetAllTicketsByCompanyAsync(companyId);
+            var members = await _infoService.GetAllMembersAsync(companyId);
+            var company =  _context.Company.FirstOrDefault(c => c.Id == companyId);
+            var viewModel = new DashboardViewModel()
             {
-                Projects = await _projectService.GetAllProjectsByCompany(companyId),
-                Tickets = await _bTTicketService.GetAllTicketsByCompanyAsync(companyId),
-                Members = await _companyInfoService.GetAllMembersAsync(companyId),
-                //ChartData = Data.ToArray()
-
-
+                Projects = projects,
+                Tickets = tickets,
+                Users = members,
+                //Company = company
             };
-            return View(model);
 
+            return View(viewModel);
         }
 
-        [HttpPost]
         public async Task<JsonResult> DonutMethod()
         {
             int companyId = User.Identity.GetCompanyId().Value;
@@ -98,31 +99,53 @@ namespace BugTracker.Controllers
             return Json(chartData);
         }
 
-        [HttpPost]
-        public async Task<JsonResult> PieChartMethod()
+        public async Task<JsonResult> DonutMethod2()
         {
             int companyId = User.Identity.GetCompanyId().Value;
+            Random rnd = new();
 
-            List<Project> projects = await _projectService.GetAllProjectsByCompany(companyId);
+            List<Ticket> tickets = (await _ticketService.GetAllTicketsByCompanyAsync(companyId)).OrderBy(t => t.Id).ToList();
+            List<TicketStatus> statuses = _context.TicketStatus.ToList();
 
-            List<object> chartData = new();
-            chartData.Add(new object[] { "ProjectName", "TicketCount" });
+            DonutViewModel chartData = new();
+            chartData.labels = tickets.Select(t => t.TicketStatus.Name).ToArray();
 
-            foreach (Project prj in projects)
+            List<SubData> dsArray = new();
+            List<int> numberOfTickets = new();
+            List<string> colors = new();
+
+            foreach (TicketStatus status in statuses)
             {
-                chartData.Add(new object[] { prj.Name, prj.Tickets.Count() });
+                numberOfTickets.Add(tickets.Where(t => t.TicketStatusId == status.Id).Count());
+
+                // This code will randomly select a color for each element of the data 
+                Color randomColor = Color.FromArgb(rnd.Next(256), rnd.Next(256), rnd.Next(256));
+                string colorHex = string.Format("#{0:X6}", randomColor.ToArgb() & 0X00FFFFFF);
+
+                colors.Add(colorHex);
             }
+
+            SubData temp = new()
+            {
+                data = numberOfTickets.ToArray(),
+                backgroundColor = colors.ToArray()
+            };
+            dsArray.Add(temp);
+
+            chartData.datasets = dsArray.ToArray();
 
             return Json(chartData);
         }
-
-
 
         public IActionResult Landing()
         {
             return View();
         }
-        //}
+        public IActionResult Index()
+        {
+            return View();
+        }
+
         public IActionResult Privacy()
         {
             return View();

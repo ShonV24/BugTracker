@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -779,10 +779,35 @@
     <None Include="wwwroot\dist\js\pages\sparkline\jquery.charts-sparkline.js" />
     <None Include="wwwroot\dist\js\sidebarmenu.js" />
     <None Include="wwwroot\dist\js\waves.js" />
+    <None Include="wwwroot\plugins\adminlte.js" />
+    <None Include="wwwroot\plugins\bootstrap.bundle.min.js" />
+    <None Include="wwwroot\plugins\buttons.bootstrap4.min.js" />
+    <None Include="wwwroot\plugins\Chart.min.js" />
+    <None Include="wwwroot\plugins\dashboard.js" />
+    <None Include="wwwroot\plugins\dataTables.bootstrap4.min.js" />
+    <None Include="wwwroot\plugins\daterangepicker.js" />
+    <None Include="wwwroot\plugins\demo.js" />
+    <None Include="wwwroot\plugins\jquery-ui.min.js" />
+    <None Include="wwwroot\plugins\jquery.dataTables.min.js" />
+    <None Include="wwwroot\plugins\jquery.knob.min.js" />
+    <None Include="wwwroot\plugins\jquery.mapael.min.js" />
+    <None Include="wwwroot\plugins\jquery.min.js" />
+    <None Include="wwwroot\plugins\jquery.mousewheel.js" />
+    <None Include="wwwroot\plugins\jquery.overlayScrollbars.min.js" />
+    <None Include="wwwroot\plugins\jquery.vmap.min.js" />
+    <None Include="wwwroot\plugins\jquery.vmap.usa.js" />
+    <None Include="wwwroot\plugins\main.min.js" />
+    <None Include="wwwroot\plugins\moment.min.js" />
+    <None Include="wwwroot\plugins\raphael.min.js" />
+    <None Include="wwwroot\plugins\responsive.bootstrap4.min.js" />
+    <None Include="wwwroot\plugins\sparkline.js" />
+    <None Include="wwwroot\plugins\summernote-bs4.js" />
+    <None Include="wwwroot\plugins\tempusdominus-bootstrap-4.min.js" />
+    <None Include="wwwroot\plugins\usa_states.min.js" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MailKit" Version="2.12.0" />
+    <PackageReference Include="MailKit" Version="2.13.0" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="5.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="5.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="5.0.7" />
@@ -794,9 +819,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="5.0.2" />
-    <PackageReference Include="MimeKit" Version="2.12.0" />
-    <PackageReference Include="Npgsql" Version="5.0.5" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="5.0.6" />
+    <PackageReference Include="MimeKit" Version="2.13.0" />
+    <PackageReference Include="Npgsql" Version="5.0.7" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="5.0.7" />
   </ItemGroup>
 
 </Project>

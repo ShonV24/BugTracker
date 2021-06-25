@@ -1,4 +1,5 @@
-﻿using BugTracker.Services.Interfaces;
+﻿using BugTracker.Models;
+using BugTracker.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;

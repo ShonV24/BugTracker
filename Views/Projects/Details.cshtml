@@ -1,83 +1,555 @@
-﻿@model BugTracker.Models.Project
-
+﻿@model BugTracker.Models.ViewModels.ProjectDetailsViewModel
+@using BugTracker.Services.Interfaces
+@using Microsoft.AspNetCore.Identity
+@inject IBTProjectService _projectService
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = $"{Model.Project.Name} - Details";
+    var projectManager = await _projectService.GetProjectManagerAsync(Model.Project.Id);
 }
+@inject IBTFileService _fileService
+@inject IBTTicketService _ticketService
+@inject UserManager<BTUser> _userManager
 
-<h1>Details</h1>
-
-<div>
-    <h4>Project</h4>
-    <hr />
-    <dl class="row">
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Name)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Name)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Description)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Description)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.StartDate)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.StartDate)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.EndDate)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.EndDate)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.ImageFileName)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.ImageFileName)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.ImageFileData)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.ImageFileData)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.ImageContentType)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.ImageContentType)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Archived)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Archived)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Company)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Company.Id)
-        </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.ProjectPriority)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.ProjectPriority.Id)
-        </dd>
-    </dl>
-    Members:
-    @foreach (BTUser member in Model.Members)
+@section Header{
+    <link href="~/plugins/chart.js/Chart.css" rel="stylesheet" />
+}
+<div class="container-fluid">
+    <partial name="_StatusMessage" model="@TempData["StatusMessage"]" />
+    @if (Model.Project.Archived)
     {
-        <p>@member.FullName</p>
+
+        <div class="alert alert-warning alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h5><i class="icon fas fa-archive"></i>Archived</h5>
+            This project was Archived on @*@string.Format("{0:MMM dd yyyy}", Model.Project.ArchiveDate)*@
+        </div>
     }
-</div>
+    <div class="row">
+        <div class="col-md-3">
+
+            <!-- Project Image -->
+            <div class="card card-primary card-outline">
+                <div class="card-body box-profile">
+                    <div class="text-center">
+                        <img class="profile-user-img img-fluid img-circle member-img"
+                             src="@_fileService.ConvertByteArrayToFile(Model.Project.ImageFileData,Model.Project.ImageContentType)"
+                             alt="Project Icon">
+                    </div>
+
+                    <h3 class="profile-username text-center">@Model.Project.Name</h3>
+
+                    <p class="text-muted ">@Model.Project.Description</p>
+
+                    <ul class="list-group list-group-unbordered mb-3">
+                        <li class="list-group-item">
+                            <b>Start Date</b> <p class="float-right">@string.Format("{0:MMM dd yyyy}", Model.Project.StartDate)</p>
+                        </li>
+                        <li class="list-group-item">
+                            <b>End Date</b> <p class="float-right">@string.Format("{0:MMM dd yyyy}", Model.Project.EndDate)</p>
+                        </li>
+                        <li class="list-group-item">
+                            <b>Priority</b> <p class="float-right">@Model.Project.ProjectPriority.Name</p>
+                        </li>
+                    </ul>
+
+                    <a asp-controller="Tickets" asp-action="Create" asp-route-id="@Model.Project.Id" asp-route-db="true" class="btn btn-primary btn-block"><b>Add Ticket</b></a>
+                    @if ((User.IsInRole("ProjectManager") && _userManager.GetUserId(User) == projectManager.Id) || User.IsInRole("Admin"))
+                    {
+                        @if (Model.Project.Archived == true)
+                        {
+
+                            <a class="btn btn-success btn-block" asp-action="UnArchive" asp-route-id="@Model.Project.Id"><i class="icon fas fa-archive"></i>Unarchive</a>
+                        }
+                        else
+                        {
+                            <a class="btn btn-danger btn-block" asp-action="Archive" asp-route-id="@Model.Project.Id"><i class="icon fas fa-archive"></i>Archive</a>
+
+                        }
+                        <a class="btn btn-warning btn-block" asp-action="Edit" asp-route-id="@Model.Project.Id"><i class="icon fas fa-edit"></i>Edit</a>
+                    }
+                </div>
+                <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            <!-- About Me Box -->
+            <div class="card card-primary">
+                <div class="card-header">
+                    <h3 class="card-title">Members</h3>
+                </div>
+                <!-- /.card-header -->
+                <div class="card-body">
+                    <strong>Project Manager: @projectManager?.FullName</strong>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a class="btn btn-warning btn-block" asp-action="AddManager" asp-route-id="@Model.Project.Id">
+                            <i class="fas fa-user mr-1">
+                            </i>Assign Manager
+                        </a>
+                    }
+                    <hr />
+                    @foreach (var member in Model.Project.Members)
+                    {
+                        <div class="row">
+                            <div class="col-8">
+
+                                <strong><i class="fas fa-book mr-1"></i> @member.FullName</strong>
+                                <p class="text-muted">
+                                    <span class="users-list-date">@((await _ticketService.GetAllTicketsByRoleAsync("Submitter", member.Id)).Count) Submitted</span>
+                                    @*<span class="users-list-date">@((await _ticketService.GetAllDeveloperTicketsByResolvedAsync(member.Id, false)).Count) Open Tickets</span>*@
+                                </p>
+                            </div>
+                            <div class="col-4">
+
+                                @*<img src="@_fileService.GetUserAvatar(member)" class="img-circle img-fluid sm-sq-img" />*@
+                            </div>
+
+                        </div>
+                        <hr>
+                    }
+                    @if ((User.IsInRole("ProjectManager") && projectManager.Id == _userManager.GetUserId(User)) || User.IsInRole("Admin"))
+                    {
+                        <a asp-action="AddMembers" asp-route-id="@Model.Project.Id" class="btn btn-block btn-primary">
+                            <i class="fas fa-user mr-2">
+                            </i>Assign Users
+                        </a>
+                    }
+
+                </div>
+                <!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+        </div>
+        <!-- /.col -->
+        <div class="col-md-9">
+            <!--Row of charts-->
+            <div class="row px-2">
+                <div class="col-md-4">
+
+                    <!-- DONUT CHART Type -->
+                    <div class="card shadow elevation-1">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-chart-pie mr-1"></i>Ticket Types</h3>
+
+                            <div class="card-tools">
+                                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="typeChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        </div>
+                        <!-- /.card-body -->
+                    </div>
+                    <!-- /.card -->
+                </div>
+                <!-- DONUT CHART Status -->
+                <div class="col-md-4">
+
+                    <div class="card shadow elevation-1">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-chart-pie mr-1"></i>Ticket Status</h3>
+
+                            <div class="card-tools">
+                                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="statusChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        </div>
+                        <!-- /.card-body -->
+                    </div>
+                    <!-- /.card -->
+                </div>
+                <!-- DONUT CHART Priority-->
+                <div class="col-md-4">
+
+                    <div class="card shadow elevation-1">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-chart-pie mr-1"></i>Ticket Priority</h3>
+
+                            <div class="card-tools">
+                                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="priorityChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        </div>
+                        <!-- /.card-body -->
+                    </div>
+                    <!-- /.card -->
+                </div>
+            </div>
+            <!--Ticket Table-->
+            <div class="card">
+                <div class="card-header p-2">
+                    <h4 class="card-title"> Open Tickets</h4>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>
+                </div><!-- /.card-header -->
+                <div class="card-body">
+                    <table id="ticketTable" class="table dataTable table-striped">
+                        <thead>
+                            <tr>
+
+                                <th>Name</th>
+                                <th>Created</th>
+                                <th>Created Hidden</th>
+                                <th>Updated</th>
+                                <th>Updated HIDDEN</th>
+                                <th>Developer</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>PriorityHidden</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ticket in Model.OpenTickets)
+                            {
+                                <tr>
+                                    <td><a asp-action="Details" asp-controller="Tickets" asp-route-id="@ticket.Id">@ticket.Title</a></td>
+                                    <td>@string.Format("{0:MMM dd yyyy}", ticket.Created)</td>
+                                    <td>@(ticket.Created.ToUnixTimeSeconds())</td>
+                                    <td>@string.Format("{0:MMM dd yyyy hh:mm tt}", ticket.Updated)</td>
+                                    @if (ticket.Updated is not null)
+                                    {
+
+                                        <td>@(ticket.Updated.Value.ToUnixTimeSeconds())</td>
+                                    }
+                                    else
+                                    {
+                                        <td></td>
+                                    }
+
+                                    <td>@ticket.DeveloperUser?.FullName</td>
+                                    <td>@ticket.TicketType.Name</td>
+                                    <td>@ticket.TicketStatus.Name</td>
+                                    <td><span class="badge priorityBadge">@ticket.TicketPriority.Name</span></td>
+                                    <td>@ticket.TicketPriorityId</td>
+                                    @if (User.IsInRole("Admin") || User.IsInRole("ProjectManager"))
+                                    {
+
+                                        <td>
+                                            <div class="btn-group">
+                                                <a asp-action="Details" asp-route-id="@ticket.Id" asp-controller="Tickets" class="btn btn-default">Details</a>
+                                                <button type="button" class="btn btn-default dropdown-toggle dropdown-icon" data-toggle="dropdown">
+                                                    <span class="sr-only">Toggle Dropdown</span>
+                                                </button>
+                                                <div class="dropdown-menu bg-warning" role="menu">
+                                                    <a class="dropdown-item bg-warning" asp-action="Edit" asp-controller="Tickets" asp-route-id="@ticket.Id">Edit</a>
+                                                    <a class="dropdown-item bg-danger" asp-action="Archive" asp-controller="Tickets" asp-route-id="@ticket.Id">Archive</a>
+
+                                                </div>
+                                            </div>
+
+
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@ticket.Id" class="btn btn-default">Details</a>
+
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div><!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            <div class="card">
+                <div class="card-header p-2">
+                    <h4 class="card-title">Resolved Tickets</h4>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>
+                </div><!-- /.card-header -->
+                <div class="card-body">
+                    <table id="resolvedTicketsTable" class="table dataTable table-striped">
+                        <thead>
+                            <tr>
+
+                                <th>Name</th>
+                                <th>Created</th>
+                                <th>Created Hidden</th>
+                                <th>Updated</th>
+                                <th>Updated HIDDEN</th>
+                                <th>Developer</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>PriorityHidden</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ticket in Model.ResolvedTickets)
+                            {
+                                <tr>
+                                    <td><a asp-action="Details" asp-controller="Tickets" asp-route-id="@ticket.Id">@ticket.Title</a></td>
+                                    <td>@string.Format("{0:MMM dd yyyy}", ticket.Created)</td>
+                                    <td>@(ticket.Created.ToUnixTimeSeconds())</td>
+                                    <td>@string.Format("{0:MMM dd yyyy hh:mm tt}", ticket.Updated)</td>
+                                    @if (ticket.Updated is not null)
+                                    {
+
+                                        <td>@(ticket.Updated.Value.ToUnixTimeSeconds())</td>
+                                    }
+                                    else
+                                    {
+                                        <td></td>
+                                    }
+
+                                    <td>@ticket.DeveloperUser?.FullName</td>
+                                    <td>@ticket.TicketType.Name</td>
+                                    <td>@ticket.TicketStatus.Name</td>
+                                    <td><span class="badge priorityBadge">@ticket.TicketPriority.Name</span></td>
+                                    <td>@ticket.TicketPriorityId</td>
+                                    @if (User.IsInRole("Admin") || User.IsInRole("ProjectManager"))
+                                    {
+
+                                        <td>
+                                            <div class="btn-group">
+                                                <a asp-action="Details" asp-route-id="@ticket.Id" asp-controller="Tickets" class="btn btn-default">Details</a>
+                                                <button type="button" class="btn btn-default dropdown-toggle dropdown-icon" data-toggle="dropdown">
+                                                    <span class="sr-only">Toggle Dropdown</span>
+                                                </button>
+                                                <div class="dropdown-menu bg-warning" role="menu">
+                                                    <a class="dropdown-item bg-warning" asp-action="Edit" asp-controller="Tickets" asp-route-id="@ticket.Id">Edit</a>
+                                                    <a class="dropdown-item bg-danger" asp-action="Archive" asp-controller="Tickets" asp-route-id="@ticket.Id">Archive</a>
+
+                                                </div>
+                                            </div>
+
+
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@ticket.Id" class="btn btn-default">Details</a>
+
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                </div><!-- /.card-body -->
+            </div>
+            <!-- /.card -->
+            <div class="card collapsed-card">
+                <div class="card-header p-2">
+                    <h4 class="card-title">Archived Tickets</h4>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div><!-- /.card-header -->
+                <div class="card-body">
+                    <table id="archivedTicketsTable" class="table dataTable table-striped">
+                        <thead>
+                            <tr>
+
+                                <th>Name</th>
+                                <th>Created</th>
+                                <th>Created Hidden</th>
+                                <th>Updated</th>
+                                <th>Updated HIDDEN</th>
+                                <th>Developer</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>PriorityHidden</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ticket in Model.ArchivedTickets)
+                            {
+                                <tr>
+                                    <td><a asp-action="Details" asp-controller="Tickets" asp-route-id="@ticket.Id">@ticket.Title</a></td>
+                                    <td>@string.Format("{0:MMM dd yyyy}", ticket.Created)</td>
+                                    <td>@(ticket.Created.ToUnixTimeSeconds())</td>
+                                    <td>@string.Format("{0:MMM dd yyyy hh:mm tt}", ticket.Updated)</td>
+                                    @if (ticket.Updated is not null)
+                                    {
+
+                                        <td>@(ticket.Updated.Value.ToUnixTimeSeconds())</td>
+                                    }
+                                    else
+                                    {
+                                        <td></td>
+                                    }
+
+                                    <td>@ticket.DeveloperUser?.FullName</td>
+                                    <td>@ticket.TicketType.Name</td>
+                                    <td>@ticket.TicketStatus.Name</td>
+                                    <td><span class="badge priorityBadge">@ticket.TicketPriority.Name</span></td>
+                                    <td>@ticket.TicketPriorityId</td>
+                                    @if (User.IsInRole("Admin") || User.IsInRole("ProjectManager"))
+                                    {
+
+                                        <td>
+                                            <div class="btn-group">
+                                                <a asp-action="Details" asp-route-id="@ticket.Id" asp-controller="Tickets" class="btn btn-default">Details</a>
+                                                <button type="button" class="btn btn-default dropdown-toggle dropdown-icon" data-toggle="dropdown">
+                                                    <span class="sr-only">Toggle Dropdown</span>
+                                                </button>
+                                                <div class="dropdown-menu bg-warning" role="menu">
+                                                    <a class="dropdown-item bg-warning" asp-action="Edit" asp-controller="Tickets" asp-route-id="@ticket.Id">Edit</a>
+                                                    <a class="dropdown-item bg-danger" asp-action="Archive" asp-controller="Tickets" asp-route-id="@ticket.Id">Archive</a>
+
+                                                </div>
+                                            </div>
+
+
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@ticket.Id" class="btn btn-default">Details</a>
+
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div><!-- /.card-body -->
+            </div>
+        </div>
+        <!-- /.col -->
+    </div>
+    <!-- /.row -->
+</div><!-- /.container-fluid -->
+
 <div>
-    <a asp-action="Edit" asp-route-id="@Model.Id">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+    <a asp-action="MyProjects" class="btn btn-secondary">Back to My Projects</a>
+    <a asp-action="AllProjects" class="btn btn-secondary">Back to All Projects</a>
 </div>
+@section Scripts{
+    <script src="~/js/PriorityBadge.js"></script>
+    <script src="~/plugins/chart.js/Chart.bundle.js"></script>
+    <script>
+        $("#archiveTable").collapse({'hide':true})
+        var isDark = document.getElementById("layoutBody").classList.contains("dark-mode")
+        if (isDark) {
+            //Dark colors RED Orange YELLOW Green blue (primary)
+            backgroundColor = ['#e74b3c', '#fd7e14', '#f39c12', '#06BC8C', '#3f6791', '#6f42c1']
+            textColor = '#dddddd'
+        } else {
+            //Light colors
+            backgroundColor = ['#dc3545', '#fd7e14', '#ffc108', '#27a745', '#1385ff', '#6f42c1',]
+            textColor = '#202529'
+        }
+        function chartWithAjax(url, data, id) {
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: data,
+                //contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (result) {
+                    //Donut
+                    var donutChartCanvas = $(id).get(0).getContext('2d')
+                    var donutData = result
+                    for (var i = 0; i < donutData.datasets.length; i++) {
+                        donutData.datasets[i].backgroundColor = backgroundColor
+                    }
+                    var donutOptions = {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        legend: {
+                            labels: {
+                                fontColor: textColor
+                            }
+                        }
+                    }
+                    //Create pie or douhnut chart
+                    // You can switch between pie and douhnut using the method below.
+                    new Chart(donutChartCanvas, {
+                        type: 'doughnut',
+                        data: donutData,
+                        options: donutOptions
+                    })
+                },
+                failure: function (result) {
+                    alert(result.d + "Failed");
+                },
+                error: function (result) {
+                    alert(result.d + "Error");
+                }
+            });
+        }
+        function charts() {
+        chartWithAjax("/Home/ProjStatusChartMethod", { projId: @Model.Project.Id }, "#statusChart")
+                    chartWithAjax("/Home/ProjTypeChartMethod", { projId: @Model.Project.Id }, "#typeChart")
+                    chartWithAjax("/Home/ProjPriorityChartMethod", { projId: @Model.Project.Id }, "#priorityChart")
+        }
+        charts();
+    </script>
+    <script>
+        $(document).ready(function () {
+            $('#ticketTable').DataTable({
+                "responsive": true,
+                "order": [[3, 'dsc']],
+                "sScrollX": "100%",
+                columnDefs: [
+                    { targets: [2, 4, 9], visible: false },
+                    { "orderData": 2, targets: [1] },
+                    { "orderData": 4, targets: [3] },
+                    { "orderData": 9, targets: [8] },
+                    { "searchable": false, "targets": 10 },
+                    { targets: '_all', visible: true }
+                ]
+            });
+            $('#resolvedTicketsTable').DataTable({
+                "responsive": true,
+                "order": [[3, 'dsc']],
+                "sScrollX": "100%",
+                columnDefs: [
+                    { targets: [2, 4, 9], visible: false },
+                    { "orderData": 2, targets: [1] },
+                    { "orderData": 4, targets: [3] },
+                    { "orderData": 9, targets: [8] },
+                    { "searchable": false, "targets": 10 },
+                    { targets: '_all', visible: true }
+                ]
+            });
+            $('#archiveTable').DataTable({
+                "responsive": true,
+                "order": [[3, 'dsc']],
+                "sScrollX": "100%",
+                columnDefs: [
+                    { targets: [2, 4, 9], visible: false },
+                    { "orderData": 2, targets: [1] },
+                    { "orderData": 4, targets: [3] },
+                    { "orderData": 9, targets: [8] },
+                    { "searchable": false, "targets": 10 },
+                    { targets: '_all', visible: true }
+                ]
+            })
+        });
+    </script>
+    <script src="~/js/chartBasics.js"></script>
+}

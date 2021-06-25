@@ -5,6 +5,7 @@ using BugTracker.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -248,12 +249,14 @@ namespace BugTracker.Services
 
         public async Task<List<Ticket>> GetProjectTicketsByStatusAsync(string statusName, int companyId, int projectId)
         {
-            List<Ticket> tickets = new();
+            throw new NotImplementedException();
 
-            tickets = (await GetAllTicketsByStatusAsync(companyId, statusName))
-                .Where(t => t.ProjectId == projectId).ToList();
+            //List<Ticket> tickets = new();
 
-            return tickets;
+            //tickets = (await GetAllTicketsByStatusAsync(companyId, statusName))
+            //    .Where(t => t.ProjectId == projectId).ToList();
+
+            //return tickets;
         }
 
         public async Task<List<Ticket>> GetProjectTicketsByPriorityAsync(string priorityName, int companyId, int projectId)
@@ -266,12 +269,29 @@ namespace BugTracker.Services
             return tickets;
         }
 
-        public Task<List<Ticket>> GetProjectTicketsByStatusAsync(int companyId, string typeName)
+        public async Task<List<Ticket>> GetProjectTicketsByStatusAsync(int companyId, string typeName, int projectId)
+        {
+            List<Ticket> tickets = new();
+
+            try
+            {
+                tickets = (await GetAllTicketsByStatusAsync(companyId, typeName))
+                            .Where(t => t.ProjectId == projectId).ToList();
+                return tickets;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"*** ERROR *** - Error No Project Ticket by Status found. --> {ex.Message}");
+                throw;
+            }
+        }
+
+        public Task<List<Ticket>> GetProjectTicketsByPriorityAsync(int companyId, string typeName)
         {
             throw new NotImplementedException();
         }
 
-        public Task<List<Ticket>> GetProjectTicketsByPriorityAsync(int companyId, string typeName)
+        public Task<List<Ticket>> GetProjectTicketsByStatusAsync(int companyId, string typeName)
         {
             throw new NotImplementedException();
         }

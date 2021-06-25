@@ -1,6 +1,33 @@
-﻿<link rel="stylesheet" type="text/css" href="../../assets/extra-libs/multicheck/multicheck.css">
+﻿@model BugTracker.Models.ViewModels.DashboardViewModel
+@using Microsoft.AspNetCore.Identity
+@using BugTracker.Extensions
+@using BugTracker.Services.Interfaces
+
+@inject IBTCompanyInfoService _companyInfoService
+@inject IBTRolesService _roleService
+@inject IBTProjectService _projectservice
+@inject IBTTicketService _ticketService
+@inject UserManager<BTUser> _userManager
+@inject IImageService _imageService
+
+
+@{
+    int companyId = User.Identity.GetCompanyId().Value;
+    BTUser btUser = await _userManager.GetUserAsync(User);
+    var pms = await _companyInfoService.GetMembersInRoleAsync("Project Manager", companyId);
+    List<Project> myProjects = await _projectservice.ListUserProjectsAsync(btUser.Id);
+}
+
+
+
+<link rel="stylesheet" type="text/css" href="../../assets/extra-libs/multicheck/multicheck.css">
 <link href="../../assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.css" rel="stylesheet">
 <link href="../../dist/css/style.min.css" rel="stylesheet">
+
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
 
 <!-- ============================================================== -->
 <!-- Bread crumb and right sidebar toggle -->
@@ -30,15 +57,21 @@
 <!-- ============================================================== -->
 <div class="container-fluid">
     <!-- ============================================================== -->
-    <!-- Sales Cards  -->
+    <!-- Info   -->
     <!-- ============================================================== -->
     <div class="row">
         <!-- Column -->
-        <div class="col-md-6 col-lg-2 col-xlg-3">
-            <div class="card card-hover">
-                <div class="box bg-cyan text-center">
-                    <h1 class="font-light text-white"><i class="mdi mdi-view-dashboard"></i></h1>
-                    <h6 class="text-white">Dashboard</h6>
+        <div class="row">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="info-box">
+                    <span class="info-box-icon bg-info elevation-1"><i class="fas fa-cog"></i></span>
+                   
+                    <div class="info-box-content">
+                        <span class="info-box-text">Development Tickets</span>
+                        <span class="info-box-number">
+                            @Model.Projects.Count Open | <span class="text-muted">@Model.Tickets.Count Total</span>
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -146,6 +179,24 @@
             </div>
         </div>
     </section>
+    <div class="col-md-6">
+        <!-- DONUT CHART Status -->
+        <div class="card card-danger">
+            <div class="card-header">
+                <h3 class="card-title">Ticket Status</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                        <i class="fas fa-minus"></i>
+                    </button>
+
+                </div>
+                <div class="card-body">
+                    <canvas id="donutChart2">
+                    </canvas>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- ============================================================== -->
     <div class="row">
         <div class="col-md-12">
@@ -1378,10 +1429,72 @@
     <script src="../../assets/extra-libs/multicheck/jquery.multicheck.js"></script>
     <script src="../../assets/extra-libs/DataTables/datatables.min.js"></script>
 
-    <script>
-        /****************************************
-        *       Basic Table                   *
-        ****************************************/
-        $('#zero_config').DataTable();
-    </script>
+    <script type="text/javascript">
+        $.ajax({
+            type: "POST",
+            url: "/Home/DonutMethod",
+            data: '{}',
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (result) {
+                //Donut
+                var donutChartCanvas = $('#donutChart').get(0).getContext('2d')
+                var donutData = result
+                var donutOptions = {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                }
+                //Create pie or douhnut chart
+                // You can switch between pie and douhnut using the method below.
+                new Chart(donutChartCanvas, {
+                    type: 'doughnut',
+                    data: donutData,
+                    options: donutOptions
+                })
+            },
+            failure: function (result) {
+                alert(result.d);
+            },
+            error: function (result) {
+                alert(result.d);
+            }
+        });</script>
+
+    <script type="text/javascript">
+        $.ajax({
+            type: "POST",
+            url: "/Home/DonutMethod2",
+            data: '{}',
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (result) {
+                //Donut
+                var donutChartCanvas = $('#donutChart2').get(0).getContext('2d')
+                var donutData = result
+                var donutOptions = {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                }
+                //Create pie or douhnut chart
+                // You can switch between pie and douhnut using the method below.
+                new Chart(donutChartCanvas, {
+                    type: 'doughnut',
+                    data: donutData,
+                    options: donutOptions
+                })
+            },
+            failure: function (result) {
+                alert(result.d);
+            },
+            error: function (result) {
+                alert(result.d);
+            }
+        });</script>
+}
+<script>
+    /****************************************
+    *       Basic Table                   *
+    ****************************************/
+    $('#zero_config').DataTable();
+</script>
 }
